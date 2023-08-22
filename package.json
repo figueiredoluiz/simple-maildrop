@@ -5,7 +5,10 @@
   "author": "Luiz Figueiredo <luiz@ponto308.jp>",
   "license": "MIT",
   "keywords": [
-    "Maildrop"
+    "Maildrop",
+    "email",
+    "email-test",
+    "disposable"
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
