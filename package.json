@@ -34,13 +34,13 @@
     "version": "npm run format && git add -A src",
     "postversion": "git push && git push --tags"
   },
-  "homepage": "https://github.com/figueiredo2021/simple-maildrop#simple-maildrop",
+  "homepage": "https://github.com/figueiredoluiz/simple-maildrop#simple-maildrop",
   "bugs": {
-    "url": "https://github.com/figueiredo2021/simple-maildrop/issues"
+    "url": "https://github.com/figueiredoluiz/simple-maildrop/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/figueiredo2021/simple-maildrop.git"
+    "url": "git+https://github.com/figueiredoluiz/simple-maildrop.git"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
