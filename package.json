@@ -12,6 +12,12 @@
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    }
+  },
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -31,8 +37,7 @@
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint",
     "preversion": "npm run lint",
-    "version": "npm run format && git add -A src",
-    "postversion": "git push && git push --tags"
+    "version": "npm run format && git add -A src"
   },
   "homepage": "https://github.com/figueiredoluiz/simple-maildrop#simple-maildrop",
   "bugs": {
