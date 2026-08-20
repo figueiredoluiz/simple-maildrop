@@ -1,4 +1,3 @@
-import axios from 'axios';
 import {
   GET_MAILBOX,
   GET_MESSAGE,
@@ -6,9 +5,9 @@ import {
   GET_ALT_INBOX,
   GET_STATISTICS,
   GET_STATUS,
-} from './queries.js';
+} from "./queries.js";
 
-const baseUrl = 'https://api.maildrop.cc/graphql';
+const baseUrl = "https://api.maildrop.cc/graphql";
 
 type MailboxVariable = {
   mailbox: string;
@@ -19,13 +18,23 @@ type MessageVariable = {
   id: string;
 };
 
-const graphQLRequest = async <V>(query: any, variables: V) => {
-  const response = await axios.post(baseUrl, { query: query.loc.source.body, variables });
-  return response.data.data;
+const graphQLRequest = async <V>(query: string, variables: V) => {
+  const response = await fetch(baseUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Maildrop API request failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as { data: unknown };
+  return payload.data;
 };
 
 const apiCall =
-  <V>(query: any) =>
+  <V>(query: string) =>
   async (variables: V) =>
     graphQLRequest(query, variables);
 
