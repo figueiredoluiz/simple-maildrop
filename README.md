@@ -50,6 +50,9 @@ const statistics = await maildrop.getStatistics({});
 
 // Get status
 const status = await maildrop.getStatus({});
+
+// Check API connectivity
+const ping = await maildrop.ping({ message: "hello" });
 ```
 
 ## Development
