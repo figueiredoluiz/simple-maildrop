@@ -1,11 +1,14 @@
 {
   "name": "simple-maildrop",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A simple Maildrop API wrapper",
   "author": "Luiz Figueiredo <luiz@ponto308.jp>",
   "license": "MIT",
   "keywords": [
-    "Maildrop"
+    "Maildrop",
+    "email",
+    "email-test",
+    "disposable"
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
