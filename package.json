@@ -22,7 +22,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint",
     "prepare": "npm run build",
-    "prepublishOnly": "pnpm test && pnpm run lint",
+    "prepublishOnly": "npm test && npm run lint",
     "preversion": "npm run lint",
     "version": "npm run format && git add -A src",
     "postversion": "git push && git push --tags"
@@ -41,6 +41,7 @@
     "graphql-tag": "^2.12.6"
   },
   "devDependencies": {
+    "@types/node": "20.4.4",
     "@types/jest": "^29.5.3",
     "@typescript-eslint/eslint-plugin": "^6.2.0",
     "@typescript-eslint/parser": "^6.2.0",
@@ -48,6 +49,6 @@
     "jest": "^29.6.1",
     "prettier": "^3.0.0",
     "ts-jest": "^29.1.1",
-    "typescript": "^5.1.6"
+    "typescript": "5.1.6"
   }
 }
