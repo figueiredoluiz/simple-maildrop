@@ -1,12 +1,20 @@
 # Simple Maildrop
 
 A simple TypeScript library for interacting with the Maildrop API.
-Get more information about Maildrop service visiting their website at 
-[https://maildrop.cc/](https://maildrop.cc/).
+Get more information about the Maildrop service at [maildrop.cc](https://maildrop.cc/).
+
+## Requirements
+
+- Node.js 24 or newer
+- pnpm 11 or newer for local development
 
 ## Installation
 
-Install with `npm install --save simple-maildrop` or `pnpm add simple-maildrop`
+Install with pnpm:
+
+```bash
+pnpm add simple-maildrop
+```
 
 ## Usage
 
@@ -44,6 +52,20 @@ const statistics = await maildrop.getStatistics({});
 const status = await maildrop.getStatus({});
 ```
 
-## Testing
+## Development
 
-To run the tests, use the `npm test` or `pnpm test`:
+Install the development dependencies and run the validation suite with pnpm:
+
+```bash
+pnpm install
+pnpm test
+pnpm run typecheck
+pnpm run lint
+pnpm run format:check
+```
+
+Build the package with:
+
+```bash
+pnpm run build
+```
