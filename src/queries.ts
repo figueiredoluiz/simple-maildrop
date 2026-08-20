@@ -1,6 +1,4 @@
-import gql from 'graphql-tag';
-
-export const GET_MAILBOX = gql`
+export const GET_MAILBOX = `
   query GetMailbox($mailbox: String!) {
     inbox(mailbox: $mailbox) {
       id
@@ -11,7 +9,7 @@ export const GET_MAILBOX = gql`
   }
 `;
 
-export const GET_MESSAGE = gql`
+export const GET_MESSAGE = `
   query GetMessage($mailbox: String!, $id: String!) {
     message(mailbox: $mailbox, id: $id) {
       id
@@ -25,19 +23,19 @@ export const GET_MESSAGE = gql`
   }
 `;
 
-export const DELETE_MESSAGE = gql`
+export const DELETE_MESSAGE = `
   mutation DeleteMessage($mailbox: String!, $id: String!) {
     delete(mailbox: $mailbox, id: $id)
   }
 `;
 
-export const GET_ALT_INBOX = gql`
+export const GET_ALT_INBOX = `
   query GetAltInbox($mailbox: String!) {
     altinbox(mailbox: $mailbox)
   }
 `;
 
-export const GET_STATISTICS = gql`
+export const GET_STATISTICS = `
   query GetStatistics {
     statistics {
       blocked
@@ -46,7 +44,7 @@ export const GET_STATISTICS = gql`
   }
 `;
 
-export const GET_STATUS = gql`
+export const GET_STATUS = `
   query GetStatus {
     status
   }

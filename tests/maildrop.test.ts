@@ -1,55 +1,51 @@
-import axios from "axios";
-import Maildrop from "../lib/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import Maildrop from "../src/index.js";
 
-jest.mock("axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedFetch = vi.fn();
+vi.stubGlobal("fetch", mockedFetch);
 
 describe("Maildrop", () => {
   let maildrop: ReturnType<typeof Maildrop>;
 
   beforeEach(() => {
     maildrop = Maildrop();
+    mockedFetch.mockReset();
   });
 
-  it("gets a mailbox", async () => {
-    mockedAxios.post.mockResolvedValueOnce({ data: { data: "mockedData" } });
-    const data = await maildrop.getMailbox({ mailbox: "test" });
+  it.each([
+    ["gets a mailbox", "getMailbox", { mailbox: "test" }],
+    ["gets an alternative inbox", "getAltInbox", { mailbox: "test" }],
+    ["gets statistics", "getStatistics", {}],
+    ["gets status", "getStatus", {}],
+    ["gets a message", "getMessage", { mailbox: "test", id: "1" }],
+    ["deletes a message", "deleteMessage", { mailbox: "test", id: "1" }],
+  ] as const)("%s", async (_name, method, variables) => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: "mockedData" }), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const data = await maildrop[method](variables as never);
+
     expect(data).toBe("mockedData");
-    expect(mockedAxios.post).toHaveBeenCalledWith("https://api.maildrop.cc/graphql", { query: expect.any(String), variables: { mailbox: "test" } });
+    const [url, request] = mockedFetch.mock.calls[0];
+    expect(url).toBe("https://api.maildrop.cc/graphql");
+    expect(request).toMatchObject({
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+    expect(JSON.parse(request.body)).toEqual({
+      query: expect.any(String),
+      variables,
+    });
   });
 
-  it("gets a message", async () => {
-    mockedAxios.post.mockResolvedValueOnce({ data: { data: "mockedData" } });
-    const data = await maildrop.getMessage({ mailbox: "test", id: "1" });
-    expect(data).toBe("mockedData");
-    expect(mockedAxios.post).toHaveBeenCalledWith("https://api.maildrop.cc/graphql", { query: expect.any(String), variables: { mailbox: "test", id: "1" } });
-  });
+  it("reports HTTP failures", async () => {
+    mockedFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
 
-  it("deletes a message", async () => {
-    mockedAxios.post.mockResolvedValueOnce({ data: { data: "mockedData" } });
-    const data = await maildrop.deleteMessage({ mailbox: "test", id: "1" });
-    expect(data).toBe("mockedData");
-    expect(mockedAxios.post).toHaveBeenCalledWith("https://api.maildrop.cc/graphql", { query: expect.any(String), variables: { mailbox: "test", id: "1" } });
-  });
-
-  it("gets an alternative inbox", async () => {
-    mockedAxios.post.mockResolvedValueOnce({ data: { data: "mockedData" } });
-    const data = await maildrop.getAltInbox({ mailbox: "test" });
-    expect(data).toBe("mockedData");
-    expect(mockedAxios.post).toHaveBeenCalledWith("https://api.maildrop.cc/graphql", { query: expect.any(String), variables: { mailbox: "test" } });
-  });
-
-  it("gets statistics", async () => {
-    mockedAxios.post.mockResolvedValueOnce({ data: { data: "mockedData" } });
-    const data = await maildrop.getStatistics({});
-    expect(data).toBe("mockedData");
-    expect(mockedAxios.post).toHaveBeenCalledWith("https://api.maildrop.cc/graphql", { query: expect.any(String), variables: {} });
-  });
-
-  it("gets status", async () => {
-    mockedAxios.post.mockResolvedValueOnce({ data: { data: "mockedData" } });
-    const data = await maildrop.getStatus({});
-    expect(data).toBe("mockedData");
-    expect(mockedAxios.post).toHaveBeenCalledWith("https://api.maildrop.cc/graphql", { query: expect.any(String), variables: {} });
+    await expect(maildrop.getStatus({})).rejects.toThrow(
+      "Maildrop API request failed with status 503",
+    );
   });
 });
