@@ -6,6 +6,7 @@ vi.stubGlobal("fetch", mockedFetch);
 
 describe("Maildrop", () => {
   let maildrop: ReturnType<typeof Maildrop>;
+  type Request = (client: ReturnType<typeof Maildrop>) => Promise<unknown>;
 
   beforeEach(() => {
     maildrop = Maildrop();
@@ -13,29 +14,45 @@ describe("Maildrop", () => {
   });
 
   it.each([
-    ["gets a mailbox", "getMailbox", { mailbox: "test" }],
-    ["gets an alternative inbox", "getAltInbox", { mailbox: "test" }],
-    ["gets statistics", "getStatistics", {}],
-    ["gets status", "getStatus", {}],
-    ["gets a message", "getMessage", { mailbox: "test", id: "1" }],
-    ["deletes a message", "deleteMessage", { mailbox: "test", id: "1" }],
-  ] as const)("%s", async (_name, method, variables) => {
+    [
+      "gets a mailbox",
+      (client: ReturnType<typeof Maildrop>) => client.getMailbox({ mailbox: "test" }),
+      { mailbox: "test" },
+    ],
+    [
+      "gets an alternative inbox",
+      (client: ReturnType<typeof Maildrop>) => client.getAltInbox({ mailbox: "test" }),
+      { mailbox: "test" },
+    ],
+    ["gets statistics", (client: ReturnType<typeof Maildrop>) => client.getStatistics({}), {}],
+    ["gets status", (client: ReturnType<typeof Maildrop>) => client.getStatus({}), {}],
+    [
+      "gets a message",
+      (client: ReturnType<typeof Maildrop>) => client.getMessage({ mailbox: "test", id: "1" }),
+      { mailbox: "test", id: "1" },
+    ],
+    [
+      "deletes a message",
+      (client: ReturnType<typeof Maildrop>) => client.deleteMessage({ mailbox: "test", id: "1" }),
+      { mailbox: "test", id: "1" },
+    ],
+  ] as [string, Request, Record<string, string>][])("%s", async (_name, request, variables) => {
     mockedFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ data: "mockedData" }), {
         headers: { "content-type": "application/json" },
       }),
     );
 
-    const data = await maildrop[method](variables as never);
+    const data = await request(maildrop);
 
     expect(data).toBe("mockedData");
-    const [url, request] = mockedFetch.mock.calls[0];
+    const [url, fetchRequest] = mockedFetch.mock.calls[0];
     expect(url).toBe("https://api.maildrop.cc/graphql");
-    expect(request).toMatchObject({
+    expect(fetchRequest).toMatchObject({
       method: "POST",
       headers: { "content-type": "application/json" },
     });
-    expect(JSON.parse(request.body)).toEqual({
+    expect(JSON.parse(fetchRequest.body)).toEqual({
       query: expect.any(String),
       variables,
     });
