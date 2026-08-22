@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import Maildrop, { MaildropApiError } from "../src/index.js";
+import Maildrop, {
+  MaildropApiError,
+  MaildropHttpError,
+  MaildropResponseError,
+  MaildropTimeoutError,
+} from "../src/index.js";
+import type { MaildropClient } from "../src/index.js";
 
 const mockedFetch = vi.fn();
 vi.stubGlobal("fetch", mockedFetch);
 
 describe("Maildrop", () => {
-  let maildrop: ReturnType<typeof Maildrop>;
-  type Request = (client: ReturnType<typeof Maildrop>) => Promise<unknown>;
+  let maildrop: MaildropClient;
+  type Request = (client: MaildropClient) => Promise<unknown>;
 
   beforeEach(() => {
     maildrop = Maildrop();
@@ -16,44 +22,50 @@ describe("Maildrop", () => {
   it.each([
     [
       "gets a mailbox",
-      (client: ReturnType<typeof Maildrop>) => client.getMailbox({ mailbox: "test" }),
+      (client: MaildropClient) => client.getMailbox({ mailbox: "test" }),
       { mailbox: "test" },
       { inbox: [] },
     ],
     [
       "gets an alternative inbox",
-      (client: ReturnType<typeof Maildrop>) => client.getAltInbox({ mailbox: "test" }),
+      (client: MaildropClient) => client.getAltInbox({ mailbox: "test" }),
       { mailbox: "test" },
       { altinbox: "alias@maildrop.cc" },
     ],
     [
       "gets statistics",
-      (client: ReturnType<typeof Maildrop>) => client.getStatistics({}),
+      (client: MaildropClient) => client.getStatistics({}),
       {},
       { statistics: { blocked: 1, saved: 2 } },
     ],
     [
       "gets status",
-      (client: ReturnType<typeof Maildrop>) => client.getStatus({}),
+      (client: MaildropClient) => client.getStatus({}),
       {},
       { status: "operational" },
     ],
     [
       "gets a message",
-      (client: ReturnType<typeof Maildrop>) => client.getMessage({ mailbox: "test", id: "1" }),
+      (client: MaildropClient) => client.getMessage({ mailbox: "test", id: "1" }),
       { mailbox: "test", id: "1" },
       { message: null },
     ],
     [
       "deletes a message",
-      (client: ReturnType<typeof Maildrop>) => client.deleteMessage({ mailbox: "test", id: "1" }),
+      (client: MaildropClient) => client.deleteMessage({ mailbox: "test", id: "1" }),
       { mailbox: "test", id: "1" },
       { delete: true },
     ],
     [
       "pings the API",
-      (client: ReturnType<typeof Maildrop>) => client.ping({ message: "hello" }),
+      (client: MaildropClient) => client.ping({ message: "hello" }),
       { message: "hello" },
+      { ping: "pong" },
+    ],
+    [
+      "pings the API without a message",
+      (client: MaildropClient) => client.ping(),
+      {},
       { ping: "pong" },
     ],
   ] as [string, Request, Record<string, unknown>, Record<string, unknown>][])(
@@ -72,7 +84,11 @@ describe("Maildrop", () => {
       expect(url).toBe("https://api.maildrop.cc/graphql");
       expect(fetchRequest).toMatchObject({
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          "user-agent": "simple-maildrop",
+        },
       });
       expect(JSON.parse(fetchRequest.body)).toEqual({
         query: expect.any(String),
@@ -82,11 +98,100 @@ describe("Maildrop", () => {
   );
 
   it("reports HTTP failures", async () => {
-    mockedFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    mockedFetch.mockResolvedValueOnce(new Response("service unavailable", { status: 503 }));
 
-    await expect(maildrop.getStatus({})).rejects.toThrow(
-      "Maildrop API request failed with status 503",
+    const error = await maildrop.getStatus({}).catch((requestError: unknown) => requestError);
+
+    expect(error).toBeInstanceOf(MaildropHttpError);
+    expect(error).toMatchObject({ status: 503, body: "service unavailable" });
+  });
+
+  it("propagates transport failures", async () => {
+    mockedFetch.mockRejectedValueOnce(new Error("network unavailable"));
+
+    await expect(maildrop.getStatus({})).rejects.toThrow("network unavailable");
+  });
+
+  it.each([
+    ["mailbox", () => maildrop.getMailbox()],
+    ["mailbox", () => maildrop.getMailbox({ mailbox: " " })],
+    ["mailbox", () => maildrop.getMailbox({ mailbox: " test" })],
+    ["message id", () => maildrop.getMessage({ mailbox: "test", id: "" })],
+  ])("rejects an empty %s before making a request", async (_name, request) => {
+    await expect(request()).rejects.toThrow(/must be a non-empty string/);
+    expect(mockedFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing message variables", async () => {
+    await expect(maildrop.getMessage()).rejects.toThrow("message variables are required");
+    expect(mockedFetch).not.toHaveBeenCalled();
+  });
+
+  it("supports endpoint, fetch, and timeout options", async () => {
+    const customFetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { status: "operational" } }), {
+        headers: { "content-type": "application/json" },
+      }),
     );
+    const client = Maildrop({
+      endpoint: "https://example.test/graphql",
+      fetch: customFetch,
+      timeout: 250,
+    });
+
+    await expect(client.getStatus()).resolves.toEqual({ status: "operational" });
+    expect(customFetch).toHaveBeenCalledWith(
+      "https://example.test/graphql",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("reports request timeouts", async () => {
+    vi.useFakeTimers();
+    const customFetch = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    const client = Maildrop({ fetch: customFetch, timeout: 25 });
+
+    const request = client.getStatus().catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(25);
+
+    const error = await request;
+    expect(error).toBeInstanceOf(MaildropTimeoutError);
+    expect(error).toMatchObject({ timeout: 25 });
+    vi.useRealTimers();
+  });
+
+  it("reports timeouts while streaming the response body", async () => {
+    vi.useFakeTimers();
+    const customFetch = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          init?.signal?.addEventListener("abort", () =>
+            resolve({
+              ok: true,
+              json: () => Promise.reject(new DOMException("aborted", "AbortError")),
+            } as Response),
+          );
+        }),
+    );
+    const client = Maildrop({ fetch: customFetch, timeout: 25 });
+
+    const request = client.getStatus().catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(25);
+
+    const error = await request;
+    expect(error).toBeInstanceOf(MaildropTimeoutError);
+    vi.useRealTimers();
+  });
+
+  it.each([0, Number.POSITIVE_INFINITY])("rejects invalid timeout %s", (timeout) => {
+    expect(() => Maildrop({ timeout })).toThrow("timeout must be a positive finite number");
   });
 
   it("reports GraphQL errors", async () => {
@@ -106,6 +211,30 @@ describe("Maildrop", () => {
       message: "invalid query",
       errors: [{ message: "invalid query", code: "GRAPHQL_VALIDATION_FAILED" }],
     });
+  });
+
+  it("preserves partial GraphQL data on errors", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ data: { status: "degraded" }, errors: [{ message: "partial failure" }] }),
+        { headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const error = await maildrop.getStatus({}).catch((requestError: unknown) => requestError);
+
+    expect(error).toBeInstanceOf(MaildropApiError);
+    expect(error).toMatchObject({ data: { status: "degraded" } });
+  });
+
+  it("reports invalid JSON responses", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response("<!doctype html>", {
+        headers: { "content-type": "text/html" },
+      }),
+    );
+
+    await expect(maildrop.getStatus({})).rejects.toBeInstanceOf(MaildropResponseError);
   });
 
   it("reports responses without data", async () => {

@@ -1,3 +1,5 @@
+// These operations mirror the official Maildrop GraphQL schema:
+// https://docs.maildrop.cc/api-reference/graphql-api-schema
 export const GET_MAILBOX = `
   query GetMailbox($mailbox: String!) {
     inbox(mailbox: $mailbox) {

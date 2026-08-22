@@ -1,4 +1,9 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "rules": {}
+  "plugins": ["typescript"],
+  "rules": {
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-confusing-non-null-assertion": "error",
+    "typescript/no-non-null-assertion": "error"
+  }
 }
