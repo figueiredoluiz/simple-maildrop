@@ -1,11 +1,11 @@
 {
   "name": "simple-maildrop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A simple Maildrop API wrapper",
   "author": "Luiz Figueiredo <luiz@ponto308.jp>",
   "license": "MIT",
   "keywords": [
-    "Maildrop",
+    "maildrop",
     "email",
     "email-test",
     "disposable"
@@ -15,29 +15,33 @@
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
-      "import": "./lib/index.js"
+      "import": "./lib/index.js",
+      "default": "./lib/index.js"
     }
   },
+  "sideEffects": false,
   "type": "module",
   "engines": {
     "node": ">=24"
   },
   "packageManager": "pnpm@11.3.0",
   "files": [
-    "lib/**/*"
+    "lib/**/*",
+    "src/**/*",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "clean": "node --eval \"require('node:fs').rmSync('lib', { recursive: true, force: true })\"",
     "build": "pnpm run clean && tsc",
     "test": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.test.json",
     "format": "oxfmt --write src tests",
     "format:check": "oxfmt --check src tests",
     "lint": "oxlint src tests --deny-warnings",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm test && npm run lint",
-    "preversion": "npm run lint",
-    "version": "npm run format && git add -A src"
+    "prepare": "pnpm run build",
+    "prepublishOnly": "pnpm test && pnpm run lint",
+    "preversion": "pnpm run lint",
+    "version": "pnpm run format && git add -A src"
   },
   "homepage": "https://github.com/figueiredoluiz/simple-maildrop#simple-maildrop",
   "bugs": {
