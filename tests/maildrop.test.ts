@@ -5,10 +5,22 @@ import Maildrop, {
   MaildropResponseError,
   MaildropTimeoutError,
 } from "../src/index.js";
-import type { MaildropClient } from "../src/index.js";
+import type { MaildropClient, MaildropOptions } from "../src/index.js";
 
 const mockedFetch = vi.fn();
 vi.stubGlobal("fetch", mockedFetch);
+
+const runTimedRequest = async (customFetch: NonNullable<MaildropOptions["fetch"]>) => {
+  vi.useFakeTimers();
+  const client = Maildrop({ fetch: customFetch, timeout: 25 });
+  const request = client.getStatus().catch((error: unknown) => error);
+  await vi.advanceTimersByTimeAsync(25);
+  const error = await request;
+  vi.useRealTimers();
+
+  expect(error).toBeInstanceOf(MaildropTimeoutError);
+  return error;
+};
 
 describe("Maildrop", () => {
   let maildrop: MaildropClient;
@@ -18,6 +30,16 @@ describe("Maildrop", () => {
     maildrop = Maildrop();
     mockedFetch.mockReset();
   });
+
+  const requestWithPayload = async (payload: unknown) => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    return maildrop.getStatus().catch((error: unknown) => error);
+  };
 
   it.each([
     [
@@ -147,7 +169,6 @@ describe("Maildrop", () => {
   });
 
   it("reports request timeouts", async () => {
-    vi.useFakeTimers();
     const customFetch = vi.fn(
       (_input: RequestInfo | URL, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
@@ -156,19 +177,11 @@ describe("Maildrop", () => {
           );
         }),
     );
-    const client = Maildrop({ fetch: customFetch, timeout: 25 });
-
-    const request = client.getStatus().catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(25);
-
-    const error = await request;
-    expect(error).toBeInstanceOf(MaildropTimeoutError);
+    const error = await runTimedRequest(customFetch);
     expect(error).toMatchObject({ timeout: 25 });
-    vi.useRealTimers();
   });
 
   it("reports timeouts while streaming the response body", async () => {
-    vi.useFakeTimers();
     const customFetch = vi.fn(
       (_input: RequestInfo | URL, init?: RequestInit) =>
         new Promise<Response>((resolve) => {
@@ -180,14 +193,7 @@ describe("Maildrop", () => {
           );
         }),
     );
-    const client = Maildrop({ fetch: customFetch, timeout: 25 });
-
-    const request = client.getStatus().catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(25);
-
-    const error = await request;
-    expect(error).toBeInstanceOf(MaildropTimeoutError);
-    vi.useRealTimers();
+    await runTimedRequest(customFetch);
   });
 
   it.each([0, Number.POSITIVE_INFINITY])("rejects invalid timeout %s", (timeout) => {
@@ -195,16 +201,9 @@ describe("Maildrop", () => {
   });
 
   it("reports GraphQL errors", async () => {
-    mockedFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          errors: [{ message: "invalid query", code: "GRAPHQL_VALIDATION_FAILED" }],
-        }),
-        { headers: { "content-type": "application/json" } },
-      ),
-    );
-
-    const error = await maildrop.getStatus({}).catch((requestError: unknown) => requestError);
+    const error = await requestWithPayload({
+      errors: [{ message: "invalid query", code: "GRAPHQL_VALIDATION_FAILED" }],
+    });
 
     expect(error).toBeInstanceOf(MaildropApiError);
     expect(error).toMatchObject({
@@ -214,14 +213,10 @@ describe("Maildrop", () => {
   });
 
   it("preserves partial GraphQL data on errors", async () => {
-    mockedFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ data: { status: "degraded" }, errors: [{ message: "partial failure" }] }),
-        { headers: { "content-type": "application/json" } },
-      ),
-    );
-
-    const error = await maildrop.getStatus({}).catch((requestError: unknown) => requestError);
+    const error = await requestWithPayload({
+      data: { status: "degraded" },
+      errors: [{ message: "partial failure" }],
+    });
 
     expect(error).toBeInstanceOf(MaildropApiError);
     expect(error).toMatchObject({ data: { status: "degraded" } });

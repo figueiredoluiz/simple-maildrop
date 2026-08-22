@@ -72,6 +72,12 @@ notes. Since `0.4.0`, GraphQL responses containing an `errors` array throw
 `MaildropApiError`, even when partial data is also present; inspect the error's
 `data` property when handling partial responses.
 
+Historical `simple-maildrop` package contracts are maintained in the
+[package compatibility test matrix](docs/compatibility.md). The current matrix
+covers the `0.2.0` and `0.3.0` package methods, parameters, requests, and
+outputs. Live Maildrop API validation is maintained separately in the
+integration test suite.
+
 ## Client options
 
 The existing `Maildrop()` call needs no changes. Optional client settings can
