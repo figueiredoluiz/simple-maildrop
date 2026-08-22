@@ -34,6 +34,10 @@ type ResolvedMaildropOptions = {
   timeout: number;
 };
 
+type Validator<V> = {
+  (...[,]: [V | undefined]): V;
+};
+
 export abstract class MaildropError extends Error {}
 
 export class MaildropApiError extends MaildropError {
@@ -86,10 +90,9 @@ const graphQLRequest = async <V, R>(
   options: ResolvedMaildropOptions,
 ): Promise<R> => {
   const controller = new AbortController();
-  let timedOut = false;
+  const timeoutReason = {};
   const timeoutId = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
+    controller.abort(timeoutReason);
   }, options.timeout);
 
   try {
@@ -112,7 +115,7 @@ const graphQLRequest = async <V, R>(
     try {
       payload = (await response.json()) as GraphQLPayload<R>;
     } catch (error) {
-      if (timedOut && isAbortError(error)) {
+      if (isAbortError(error)) {
         throw error;
       }
 
@@ -129,7 +132,7 @@ const graphQLRequest = async <V, R>(
 
     return payload.data;
   } catch (error) {
-    if (timedOut && isAbortError(error)) {
+    if (controller.signal.reason === timeoutReason) {
       throw new MaildropTimeoutError(options.timeout, error);
     }
 
@@ -140,11 +143,7 @@ const graphQLRequest = async <V, R>(
 };
 
 const apiCall =
-  <V, R>(
-    query: string,
-    validate: (variables: V | undefined) => V,
-    options: ResolvedMaildropOptions,
-  ) =>
+  <V, R>(query: string, validate: Validator<V>, options: ResolvedMaildropOptions) =>
   async (variables?: V): Promise<R> => {
     return graphQLRequest<V, R>(query, validate(variables), options);
   };
